@@ -10,6 +10,9 @@ app.config['SECRET_KEY'] = 'HopeForTheBestPrepareForTheWorst'
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 
+# DEMO are doar rol de prezentare nu face parte din modul de lucru al lucrarii de licenta
+DEMO = False
+
 # Creare baza de date
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'db.sqlite')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -17,7 +20,6 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initializare baza de date
 db = SQLAlchemy(app)
 
-# DEMO
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key = True)
@@ -55,6 +57,12 @@ def index():
     return jsonify({'msg': 'Hello'})
 
 # Endpoint-urile aplicatiei iOS
+
+@app.route('/startDEMO', methods=['GET'])
+def set_demo():
+    global DEMO 
+    DEMO = True
+    return jsonify({'message': 'DEMO to be started!'}), 200
 
 @app.route('/register', methods=['POST'])
 def create_user():
@@ -120,6 +128,17 @@ def get_measurements(target_sensor_id):
 
 # Endpoint-urile Raspberry-ului
 
+# DEMO pentru a actiona pompa de apa la comanda
+# Doar pentru prezentarea licentei
+@app.route('/startDEMO', methods=['GET'])
+def start_demo():
+    global DEMO
+    if DEMO == True:
+        DEMO = False
+        return jsonify({'message': 'START DEMO!'}), 200
+    
+    return jsonify({'message': 'DEMO not requested.'}), 400
+
 @app.route('/getWorkMode/<target_sensor_id>', methods=['GET'])
 def get_work_mode(target_sensor_id):
     sensor = Sensor.query.filter_by(id=target_sensor_id).first()
@@ -156,6 +175,6 @@ def add_measurement(target_sensor_id):
 
     return jsonify({'message': 'New measurement succesfully added!'}), 201
 
-# Start the Server
+# Porneste serverul
 if __name__ == '__main__':
     app.run()

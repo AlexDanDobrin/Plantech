@@ -58,7 +58,7 @@ def index():
 
 # Endpoint-urile aplicatiei iOS
 
-@app.route('/startDEMO', methods=['GET'])
+@app.route('/requestDEMO', methods=['GET'])
 def set_demo():
     global DEMO 
     DEMO = True
@@ -94,7 +94,6 @@ def login():
 @app.route('/lastMeasurement/<target_sensor_id>', methods=['GET'])
 def get_last_measurement(target_sensor_id):
     measurement = Measurement.query.filter_by(sensor_id=target_sensor_id).order_by(Measurement.timestamp.desc()).first()
-    print(measurement.timestamp)
 
     if not measurement:
         return jsonify({'message': 'Invalid sensor id or no measurements for given sensor!'}), 404
@@ -126,6 +125,47 @@ def get_measurements(target_sensor_id):
 
     return jsonify(output)
 
+@app.route('/updateWorkMode/<target_sensor_id>', methods=['POST'])
+def update_mode(target_sensor_id):
+    work_mode = request.form.get('mode')
+
+    sensor = Sensor.query.filter_by(id=target_sensor_id).first()
+
+    if sensor is None:
+        return jsonify({'message': 'Sensor does not exist in records'}), 404
+    
+    sensor.mode = work_mode
+    db.session.commit()
+    return jsonify({'message': f'Work mode successfully updated for sensor with id {target_sensor_id}'}), 200
+
+@app.route('/updateLimit/<target_sensor_id>', methods=['POST'])
+def update_limit(target_sensor_id):
+    limit = int(request.form.get('limit'))
+
+    sensor = Sensor.query.filter_by(id=target_sensor_id).first()
+
+    if sensor is None:
+        return jsonify({'message': 'Sensor does not exist in records'}), 404
+    
+    sensor.limit = limit
+    db.session.commit()
+    return jsonify({'message': f'Limit successfully updated for sensor with id {target_sensor_id}'}), 200
+
+@app.route('/getSensorDetails/<target_sensor_id>', methods=['GET'])
+def get_sensor(target_sensor_id):
+    sensor = Sensor.query.filter_by(id=target_sensor_id).first()
+
+    if sensor is None:
+        return jsonify({'message': 'Sensor does not exist in records'}), 404
+
+    sensor_data = {}
+    sensor_data['sensorId'] = sensor.id
+    sensor_data['mode'] = sensor.mode
+    sensor_data['limit'] = sensor.limit
+    sensor_data['userId'] = sensor.user_id
+
+    return jsonify(sensor_data)
+
 # Endpoint-urile Raspberry-ului
 
 # DEMO pentru a actiona pompa de apa la comanda
@@ -147,15 +187,16 @@ def get_work_mode(target_sensor_id):
         return jsonify({'message': 'Invalid sensor id!'}), 404
 
     output = {}
-    output['auto'] = sensor.mode
+    output['mode'] = sensor.mode
     return jsonify(output)
 
 @app.route('/getTreshold/<target_sensor_id>', methods=['GET'])
 def get_treshold(target_sensor_id):
-    sensor = Sensor.queyr.filter_by(id=target_sensor_id).first()
+    sensor = Sensor.query.filter_by(id=target_sensor_id).first()
 
     if sensor is None:
         return jsonify({'message': 'Invalid sensor id!'}), 404
+    return jsonify({'treshold': sensor.limit}), 200
 
 
 @app.route('/newMeasurement/<target_sensor_id>', methods=['POST'])
@@ -170,11 +211,12 @@ def add_measurement(target_sensor_id):
         return jsonify({'message': 'Sensor does not exist in records'}), 404
 
     new_measurement = Measurement(target_sensor_id, value_from_sensor)
-    db.session.add(new_measurement)
+    db.session.add(new_measurement)    
     db.session.commit()
 
     return jsonify({'message': 'New measurement succesfully added!'}), 201
 
 # Porneste serverul
 if __name__ == '__main__':
-    app.run()
+    # flask run --host=0.0.0.0
+    app.run(host='0.0.0.0')

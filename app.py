@@ -41,6 +41,12 @@ class Sensor(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     measurements = db.relationship('Measurement', backref = 'sensor', lazy = 'dynamic')
 
+    def __init__(self, id, mode, limit, user_id):
+        self.id = id
+        self.mode = mode
+        self.user_id = user_id
+        self.limit = limit
+
 class Measurement(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     sensor_id = db.Column(db.Integer, db.ForeignKey('sensor.id'))
@@ -132,7 +138,7 @@ def update_mode(target_sensor_id):
     sensor = Sensor.query.filter_by(id=target_sensor_id).first()
 
     if sensor is None:
-        return jsonify({'message': 'Sensor does not exist in records'}), 404
+        return jsonify({'message': 'Sensor does not exist'}), 404
     
     sensor.mode = work_mode
     db.session.commit()
@@ -145,11 +151,46 @@ def update_limit(target_sensor_id):
     sensor = Sensor.query.filter_by(id=target_sensor_id).first()
 
     if sensor is None:
-        return jsonify({'message': 'Sensor does not exist in records'}), 404
+        return jsonify({'message': 'Sensor does not exist'}), 404
     
     sensor.limit = limit
     db.session.commit()
     return jsonify({'message': f'Limit successfully updated for sensor with id {target_sensor_id}'}), 200
+
+@app.route('/addSensor', methods=['POST'])
+def add_sensor():
+    target_username = request.form.get('username')
+    sensor_id = int(request.form.get('id'))
+    limit = int(request.form.get('limit'))
+
+    user = User.query.filter_by(username = target_username).first()
+
+    sensor = Sensor.query.filter_by(id = sensor_id).first()
+
+    # Verific daca senzorul nu exista deja
+    if sensor is not None:
+        print("Senzorul exista deja")
+        return jsonify({'message': 'Sensor already exists!'}), 400
+
+    new_sensor = Sensor(sensor_id, 'auto', limit, user.id)
+    print(new_sensor)
+    db.session.add(new_sensor)
+    db.session.commit()
+
+    return jsonify({'message': 'New sensor sucessfully created!'}), 201
+
+@app.route('/removeSensor/<target_sensor_id>', methods=['GEt'])
+def delete_sensor(target_sensor_id):
+    sensor = Sensor.query.filter_by(id = target_sensor_id).first()
+
+    if sensor is None:
+        return jsonify({'message': 'Sensor does not exist'}), 404
+
+    # Folosind metoda delete a db.session, stergerea se face in cascada
+    db.session.delete(sensor)
+    db.session.commit()
+    return jsonify({'message': 'Sensor sucessfully deleted!'}), 200
+    
 
 @app.route('/getSensorDetails/<target_sensor_id>', methods=['GET'])
 def get_sensor(target_sensor_id):
@@ -165,6 +206,31 @@ def get_sensor(target_sensor_id):
     sensor_data['userId'] = sensor.user_id
 
     return jsonify(sensor_data)
+
+@app.route('/getSensors/<target_username>', methods=['GET'])
+def get_sensors(target_username):
+    user = User.query.filter_by(username = target_username).first()
+
+    # Nu mai verificam daca exista utilizatorul deoarece daca s-a logat 
+    # cu succes este imposibil sa nu existe
+
+    sensors = Sensor.query.filter_by(user_id = user.id)
+
+    if not sensors:
+        return jsonify({'message': 'There are no sensors for the given username!'}), 404
+    
+    output = []
+
+    for sensor in sensors:
+        sensor_data = {}
+        sensor_data['sensorId'] = sensor.id
+        sensor_data['mode'] = sensor.mode
+        sensor_data['limit'] = sensor.limit
+        sensor_data['userId'] = sensor.user_id
+        output.append(sensor_data)
+
+    return jsonify(output)
+
 
 # Endpoint-urile Raspberry-ului
 
